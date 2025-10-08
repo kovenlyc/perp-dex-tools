@@ -12,35 +12,40 @@
 
 ## 自动交易机器人
 
-一个支持多个交易所（目前包括 EdgeX, Backpack, Paradex, Aster, Lighter, GRVT）的模块化交易机器人。该机器人实现了自动下单并在盈利时自动平仓的策略，主要目的是取得高交易量。
+一个支持多个交易所（目前包括 EdgeX, Backpack, Paradex, Aster, Lighter, grvt, Extended）的模块化交易机器人。该机器人实现了自动下单并在盈利时自动平仓的策略，主要目的是取得高交易量。
 
 ## 邀请链接 (获得返佣以及福利)
 
-#### EdgeX 交易所: [https://pro.edgex.exchange/referral/QUANT](https://pro.edgex.exchange/referral/QUANT)
+#### EdgeX: [https://pro.edgex.exchange/referral/QUANT](https://pro.edgex.exchange/referral/QUANT)
 
 永久享受 VIP 1 费率；额外 10% 手续费返佣；10% 额外奖励积分
 
-#### Backpack 交易所: [https://backpack.exchange/join/quant](https://backpack.exchange/join/quant)
+#### Backpack: [https://backpack.exchange/join/quant](https://backpack.exchange/join/quant)
 
 使用我的推荐链接获得 35% 手续费返佣
 
-#### Paradex 交易所: [https://app.paradex.trade/r/quant](https://app.paradex.trade/r/quant)
+#### Paradex: [https://app.paradex.trade/r/quant](https://app.paradex.trade/r/quant)
 
 使用我的推荐链接获得 10% 手续费返佣以及潜在未来福利
 
-#### Aster 交易所: [https://www.asterdex.com/zh-CN/referral/5191B1](https://www.asterdex.com/zh-CN/referral/5191B1)
+#### Aster: [https://www.asterdex.com/zh-CN/referral/5191B1](https://www.asterdex.com/zh-CN/referral/5191B1)
 
 使用我的推荐链接获得 30% 手续费返佣以及积分加成
 
-#### GRVT 交易所: [https://grvt.io/exchange/sign-up?ref=QUANT](https://grvt.io/exchange/sign-up?ref=QUANT)
+#### grvt: [https://grvt.io/exchange/sign-up?ref=QUANT](https://grvt.io/exchange/sign-up?ref=QUANT)
+
+获得 1.3x 全网最高的积分加成，未来的手续费返佣（官方预计 10 月中上线），以及即将开始的专属交易竞赛
+
+#### Extended: [https://app.extended.exchange/join/QUANT](https://app.extended.exchange/join/QUANT)
+10%的即时手续费减免；积分加成（官方未公布具体加成公式，但文档里有明确说明，通过官方大使邀请能拿到比自己小号邀请自己更多的分数）；参与社群的专属交易量大赛，奖池高达$70000，10月15日结束
 
 ## 安装
 
 Python 版本要求（最佳选项是 Python 3.10 - 3.12）：
- - grvt要求python版本在 3.10 及以上
- - Paradex要求python版本在 3.9 - 3.12
- - 其他交易所需要python版本在 3.8 及以上
 
+- grvt 要求 python 版本在 3.10 及以上
+- Paradex 要求 python 版本在 3.9 - 3.12
+- 其他交易所需要 python 版本在 3.8 及以上
 
 1. **克隆仓库**：
 
@@ -86,7 +91,7 @@ Python 版本要求（最佳选项是 Python 3.10 - 3.12）：
    pip install -r requirements.txt
    ```
 
-   **grvt 用户**：如果您想使用 grvt 交易所，需要额外安装grvt专用依赖：
+   **grvt 用户**：如果您想使用 grvt 交易所，需要额外安装 grvt 专用依赖：
    激活虚拟环境（每次使用脚本时，都需要激活虚拟环境）：
 
    ```bash
@@ -147,6 +152,7 @@ Python 版本要求（最佳选项是 Python 3.10 - 3.12）：
 #### ⚙️ 关键参数
 
 - **quantity**: 每笔订单的交易数量
+- **direction**: 脚本交易的方向，buy 表示看多，sell 表示看空
 - **take-profit**: 止盈百分比（如 0.02 表示 0.02%）
 - **max-orders**: 最大同时活跃订单数（风险控制）
 - **wait-time**: 订单间等待时间（避免过于频繁交易）
@@ -256,6 +262,14 @@ BTC：
 python runbot.py --exchange grvt --ticker BTC --quantity 0.05 --take-profit 0.02 --max-orders 40 --wait-time 450
 ```
 
+### Extended 交易所：
+
+ETH：
+
+```bash
+python runbot.py --exchange extended --ticker ETH --quantity 0.1 --take-profit 0 --max-orders 40 --wait-time 450 --grid-step 0.1
+```
+
 ## 配置
 
 ### 环境变量
@@ -303,6 +317,13 @@ python runbot.py --exchange grvt --ticker BTC --quantity 0.05 --take-profit 0.02
 - `GRVT_PRIVATE_KEY`: 您的 GRVT 私钥
 - `GRVT_API_KEY`: 您的 GRVT API 密钥
 
+#### Extended 配置
+
+- `EXTENDED_API_KEY`: Extended API Key
+- `EXTENDED_STARK_KEY_PUBLIC`: 创建API后显示的 Stark 公钥
+- `EXTENDED_STARK_KEY_PRIVATE`: 创建API后显示的 Stark 私钥
+- `EXTENDED_VAULT`: 创建API后显示的 Extended Vault ID
+
 **获取 LIGHTER_ACCOUNT_INDEX 的方法**：
 
 1. 在下面的网址最后加上你的钱包地址：
@@ -317,7 +338,7 @@ python runbot.py --exchange grvt --ticker BTC --quantity 0.05 --take-profit 0.02
 
 ### 命令行参数
 
-- `--exchange`: 使用的交易所：'edgex'、'backpack'、'paradex'、'aster'、'lighter'或'grvt'（默认：edgex）
+- `--exchange`: 使用的交易所：'edgex'、'backpack'、'paradex'、'aster'、'lighter'、'grvt' 或 'extended'（默认：edgex）
 - `--ticker`: 标的资产符号（例如：ETH、BTC、SOL）。合约 ID 自动解析。
 - `--quantity`: 订单数量（默认：0.1）
 - `--take-profit`: 止盈百分比（例如 0.02 表示 0.02%）
