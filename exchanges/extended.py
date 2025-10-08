@@ -465,56 +465,59 @@ class ExtendedClient(BaseExchangeClient):
 
     async def get_order_info(self, order_id: str) -> Optional[OrderInfo]:
         """Get order information using REST API endpoint."""
-        try:
-            url = f"https://api.starknet.extended.exchange/api/v1/user/orders/{order_id}"
-            headers = {
-                "X-Api-Key": self.api_key,
-                "User-Agent": "User-Agent"
-            }
+        order_info = None
+        url = f"https://api.starknet.extended.exchange/api/v1/user/orders/{order_id}"
+        headers = {
+            "X-Api-Key": self.api_key,
+            "User-Agent": "User-Agent"
+        }
+
+        attempt = 0
+        while not order_info and attempt < 50:
+            attempt += 1
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url, headers=headers) as response:
+                        if response.status == 200:
+                            data = await response.json()
+                            
+                            if data.get("status") != "OK" or not data.get("data"):
+                                self.logger.log(f"Failed to get order info attempt {attempt} for {order_id}: {data}", "ERROR")
+                                return None
+                            
+                            order_data = data["data"]
+                            
+                            # Convert status to match expected format
+                            status = order_data.get("status", "")
+                            if status == "NEW":
+                                status = "OPEN"
+                            elif status == "CANCELLED":
+                                status = "CANCELED"
+                            
+                            # Create OrderInfo object
+                            order_info = OrderInfo(
+                                order_id=str(order_data.get("id", "")),
+                                side=order_data.get("side", "").lower(),
+                                size=Decimal(order_data.get("qty", "0")) - Decimal(order_data.get("filledQty", "0")),
+                                price=Decimal(order_data.get("price", "0")),
+                                status=status,
+                                filled_size=Decimal(order_data.get("filledQty", "0")),
+                                remaining_size=Decimal(order_data.get("qty", "0")) - Decimal(order_data.get("filledQty", "0"))
+                            )
+                            return order_info
+                        
+                        elif response.status == 404:
+                            # Order not found
+                            self.logger.log(f"Order {order_id} not found attempt {attempt}", "INFO")
+                        
+                        else:
+                            self.logger.log(f"Failed to get order info attempt {attempt} for {order_id}: HTTP {response.status}", "ERROR")
+                            
+            except Exception as e:
+                self.logger.log(f"Error getting order info attempt {attempt} for {order_id}: {str(e)}", "ERROR")
             
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url, headers=headers) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        
-                        if data.get("status") != "OK" or not data.get("data"):
-                            self.logger.log(f"Failed to get order info for {order_id}: {data}", "ERROR")
-                            return None
-                        
-                        order_data = data["data"]
-                        
-                        # Convert status to match expected format
-                        status = order_data.get("status", "")
-                        if status == "NEW":
-                            status = "OPEN"
-                        elif status == "CANCELLED":
-                            status = "CANCELED"
-                        
-                        # Create OrderInfo object
-                        order_info = OrderInfo(
-                            order_id=str(order_data.get("id", "")),
-                            side=order_data.get("side", "").lower(),
-                            size=Decimal(order_data.get("qty", "0")) - Decimal(order_data.get("filledQty", "0")),
-                            price=Decimal(order_data.get("price", "0")),
-                            status=status,
-                            filled_size=Decimal(order_data.get("filledQty", "0")),
-                            remaining_size=Decimal(order_data.get("qty", "0")) - Decimal(order_data.get("filledQty", "0"))
-                        )
-                        
-                        return order_info
-                    
-                    elif response.status == 404:
-                        # Order not found
-                        self.logger.log(f"Order {order_id} not found", "INFO")
-                        return None
-                    
-                    else:
-                        self.logger.log(f"Failed to get order info for {order_id}: HTTP {response.status}", "ERROR")
-                        return None
-                        
-        except Exception as e:
-            self.logger.log(f"Error getting order info for {order_id}: {str(e)}", "ERROR")
-            return None
+            await asyncio.sleep(0.5)
+        return order_info
 
     async def get_active_orders(self, contract_id: str) -> List[OrderInfo]:
         """Get active orders for a contract using official SDK."""
