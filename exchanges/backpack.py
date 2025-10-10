@@ -53,7 +53,7 @@ class BackpackWebSocketManager:
         """Connect to Backpack WebSocket."""
         while True:
             try:
-                self.logger.log(f"Connecting to Backpack WebSocket", "INFO")
+                self.logger.log("Connecting to Backpack WebSocket", "INFO")
                 self.websocket = await websockets.connect(self.ws_url)
                 self.running = True
 

@@ -248,6 +248,35 @@ ETH:
 python runbot.py --exchange extended --ticker ETH --quantity 0.1 --take-profit 0 --max-orders 40 --wait-time 450 --grid-step 0.01
 ```
 
+## 🆕 Hedge Mode
+
+The new Hedge Mode (`hedge_mode.py`) is an trading strategy that reduces risk by simultaneously hedging trades across two exchanges:
+
+### How Hedge Mode Works
+
+1. **Opening Phase**: Place maker order at selected exchange (e.g., Backpack)
+2. **Hedging Phase**: After order fills, immediately place market order at Lighter to hedge
+3. **Closing Phase**: Place another maker order at selected exchange to close position
+4. **Hedge Closing**: Place market order at Lighter to close hedge position
+
+### Hedge Mode Usage Examples
+
+```bash
+# Run BTC hedge mode
+python hedge_mode.py --exchange backpack --ticker BTC --size 0.05 --iter 20
+
+# Run ETH hedge mode
+python hedge_mode.py --exchange backpack --ticker ETH --size 0.1 --iter 20
+```
+
+### Hedge Mode Parameters
+
+- `--exchange`: Primary exchange (currently supports 'backpack')
+- `--ticker`: Trading pair symbol (e.g., BTC, ETH)
+- `--size`: Order quantity per trade
+- `--iter`: Number of trading cycles
+- `--fill-timeout`: Maker order fill timeout in seconds (default: 5)
+
 ## Configuration
 
 ### Environment Variables

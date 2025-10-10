@@ -270,6 +270,42 @@ ETH：
 python runbot.py --exchange extended --ticker ETH --quantity 0.1 --take-profit 0 --max-orders 40 --wait-time 450 --grid-step 0.1
 ```
 
+## 🆕 对冲模式 (Hedge Mode)
+
+新增的对冲模式 (`hedge_mode.py`) 是一个新的交易策略，通过同时在两个交易所进行对冲交易来降低风险：
+
+### 对冲模式工作原理
+
+1. **开仓阶段**：在选定交易所（如 Backpack）下 maker 订单
+2. **对冲阶段**：订单成交后，立即在 Lighter 下市价订单进行对冲
+3. **平仓阶段**：在选定交易所下另一个 maker 订单平仓
+4. **对冲平仓**：在 Lighter 下市价订单平仓
+
+### 对冲模式优势
+
+- **风险降低**：通过同时持有相反头寸，降低单边市场风险
+- **交易量提升**：在两个交易所同时产生交易量
+- **套利机会**：利用两个交易所之间的价差
+- **自动化执行**：全自动化的对冲交易流程
+
+### 对冲模式使用示例
+
+```bash
+# 运行 BTC 对冲模式
+python hedge_mode.py --exchange backpack --ticker BTC --size 0.05 --iter 20
+
+# 运行 ETH 对冲模式
+python hedge_mode.py --exchange backpack --ticker ETH --size 0.1 --iter 20
+```
+
+### 对冲模式参数
+
+- `--exchange`: 主要交易所（目前支持 'backpack'）
+- `--ticker`: 交易对符号（如 BTC, ETH）
+- `--size`: 每笔订单数量
+- `--iter`: 交易循环次数
+- `--fill-timeout`: maker 订单填充超时时间（秒，默认 5）
+
 ## 配置
 
 ### 环境变量

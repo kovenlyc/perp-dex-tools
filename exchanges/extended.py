@@ -389,7 +389,7 @@ class ExtendedClient(BaseExchangeClient):
                             status=order_info.status
                         )
                     elif order_info.status == 'REJECTED':
-                        return OrderResult(success=False, error_message=f'Close order rejected: {order_info.status_reason}')
+                        return OrderResult(success=False, error_message=f'Close order rejected: {order_info.status}')
                     else:
                         return OrderResult(success=False, error_message=f'Unexpected close order status: {order_info.status}')
                 else:
