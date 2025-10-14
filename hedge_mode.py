@@ -32,7 +32,7 @@ class Config:
 class HedgeBot:
     """Trading bot that places post-only orders on Backpack and hedges with market orders on Lighter."""
 
-    def __init__(self, ticker: str, order_quantity: Decimal, fill_timeout: int = 5, iterations: int = 20):
+    def __init__(self, ticker: str, order_quantity: Decimal, fill_timeout: int = 5, iterations: int = 20, exchange: str = 'backpack'):
         self.ticker = ticker
         self.order_quantity = order_quantity
         self.fill_timeout = fill_timeout
@@ -44,8 +44,8 @@ class HedgeBot:
 
         # Initialize logging to file
         os.makedirs("logs", exist_ok=True)
-        self.log_filename = f"logs/{ticker}_hedge_mode_log.txt"
-        self.csv_filename = f"logs/{ticker}_hedge_mode_trades.csv"
+        self.log_filename = f"logs/{exchange}_{ticker}_hedge_mode_log.txt"
+        self.csv_filename = f"logs/{exchange}_{ticker}_hedge_mode_trades.csv"
         self.original_stdout = sys.stdout
 
         # Initialize CSV file with headers if it doesn't exist
@@ -205,12 +205,16 @@ class HedgeBot:
                                               Decimal(order_data["filled_base_amount"]))
             if order_data["is_ask"]:
                 order_data["side"] = "SHORT"
+                order_type = "OPEN"
                 self.lighter_position -= Decimal(order_data["filled_base_amount"])
             else:
                 order_data["side"] = "LONG"
+                order_type = "CLOSE"
                 self.lighter_position += Decimal(order_data["filled_base_amount"])
+            
+            client_order_index = order_data["client_order_id"]
 
-            self.logger.info(f"📊 Lighter order filled: {order_data['side']} "
+            self.logger.info(f"[{client_order_index}] [{order_type}] [Lighter] [FILLED]: "
                              f"{order_data['filled_base_amount']} @ {order_data['avg_filled_price']}")
 
             # Log Lighter trade to CSV
@@ -449,10 +453,9 @@ class HedgeBot:
                                 elif data.get("type") == "update/account_orders":
                                     # Handle account orders updates
                                     orders = data.get("orders", {}).get(str(self.lighter_market_index), [])
-                                    if len(orders) == 1:
-                                        order_data = orders[0]
-                                        if order_data.get("status") == "filled":
-                                            self.handle_lighter_order_result(order_data)
+                                    for order in orders:
+                                        if order.get("status") == "filled":
+                                            self.handle_lighter_order_result(order)
                                 elif data.get("type") == "update/order_book" and not self.lighter_snapshot_loaded:
                                     # Ignore updates until we have the initial snapshot
                                     continue
@@ -638,7 +641,7 @@ class HedgeBot:
                 order_id = await self.place_bbo_order(side, quantity)
                 start_time = time.time()
                 await asyncio.sleep(0.5)
-            elif self.backpack_order_status in ['NEW', 'OPEN', 'PENDING', 'CANCELING']:
+            elif self.backpack_order_status in ['NEW', 'OPEN', 'PENDING', 'CANCELING', 'PARTIALLY_FILLED']:
                 await asyncio.sleep(0.5)
                 if time.time() - start_time > 10:
                     try:
@@ -719,10 +722,8 @@ class HedgeBot:
         price = Decimal(order_data.get('price', '0'))
 
         if side == 'buy':
-            self.backpack_position += filled_size
             lighter_side = 'sell'
         else:
-            self.backpack_position -= filled_size
             lighter_side = 'buy'
 
         # Store order details for immediate execution
@@ -738,7 +739,6 @@ class HedgeBot:
 
         self.waiting_for_lighter_fill = True
 
-        self.logger.info(f"📋 Ready to place Lighter order: {lighter_side} {filled_size} @ {price}")
 
     async def place_lighter_market_order(self, lighter_side: str, quantity: Decimal, price: Decimal):
         if not self.lighter_client:
@@ -748,13 +748,14 @@ class HedgeBot:
 
         # Determine order parameters
         if lighter_side.lower() == 'buy':
+            order_type = "CLOSE"
             is_ask = False
             price = best_ask[0] * Decimal('1.002')
         else:
+            order_type = "OPEN"
             is_ask = True
             price = best_bid[0] * Decimal('0.998')
 
-        self.logger.info(f"Placing Lighter market order: {lighter_side} {quantity} | is_ask: {is_ask}")
 
         # Reset order state
         self.lighter_order_filled = False
@@ -784,7 +785,9 @@ class HedgeBot:
                 tx_type=self.lighter_client.TX_TYPE_CREATE_ORDER,
                 tx_info=tx_info
             )
-            self.logger.info(f"🚀 Lighter limit order sent: {lighter_side} {quantity}")
+
+            self.logger.info(f"[{client_order_index}] [{order_type}] [Lighter] [OPEN]: {quantity}")
+
             await self.monitor_lighter_order(client_order_index)
 
             return tx_hash
@@ -794,7 +797,6 @@ class HedgeBot:
 
     async def monitor_lighter_order(self, client_order_index: int):
         """Monitor Lighter order and adjust price if needed."""
-        self.logger.info(f"🔍 Starting to monitor Lighter order - Order ID: {client_order_index}")
 
         start_time = time.time()
         while not self.lighter_order_filled and not self.stop_flag:
@@ -868,6 +870,9 @@ class HedgeBot:
                     order_type = "OPEN"
                 else:
                     order_type = "CLOSE"
+                
+                if status == 'CANCELED' and filled_size > 0:
+                    status = 'FILLED'
 
                 # Handle the order update
                 if status == 'FILLED' and self.backpack_order_status != 'FILLED':
@@ -895,8 +900,11 @@ class HedgeBot:
                         'contract_id': self.backpack_contract_id,
                         'filled_size': filled_size
                     })
-                else:
-                    self.logger.info(f"[{order_id}] [{order_type}] [Backpack] [{status}]: {size} @ {price}")
+                elif self.backpack_order_status != 'FILLED':
+                    if status == 'OPEN':
+                        self.logger.info(f"[{order_id}] [{order_type}] [Backpack] [{status}]: {size} @ {price}")
+                    else:
+                        self.logger.info(f"[{order_id}] [{order_type}] [Backpack] [{status}]: {filled_size} @ {price}")
                     self.backpack_order_status = status
 
             except Exception as e:
@@ -1198,7 +1206,8 @@ async def main():
         ticker=args.ticker.upper(),
         order_quantity=Decimal(args.size),
         fill_timeout=args.fill_timeout,
-        iterations=args.iter
+        iterations=args.iter,
+        exchange=exchange
     )
 
     await bot.run()
