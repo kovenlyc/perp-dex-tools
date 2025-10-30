@@ -328,6 +328,7 @@ python hedge_mode.py --exchange edgex --ticker BTC --size 0.001 --iter 20
 - `--size`: 每笔订单数量
 - `--iter`: 交易循环次数
 - `--fill-timeout`: maker 订单填充超时时间（秒，默认 5）
+- `--sleep`: 每一笔交易之后的暂停时间，增加持仓时间（秒，默认 0）
 
 ## 配置
 

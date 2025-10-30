@@ -302,6 +302,7 @@ python hedge_mode.py --exchange edgex --ticker BTC --size 0.001 --iter 20
 - `--size`: Order quantity per trade
 - `--iter`: Number of trading cycles
 - `--fill-timeout`: Maker order fill timeout in seconds (default: 5)
+- `--sleep`: Sleep time in seconds after each step (default: 0)
 
 ## Configuration
 

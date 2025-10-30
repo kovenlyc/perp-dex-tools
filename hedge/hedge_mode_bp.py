@@ -317,9 +317,9 @@ class HedgeBot:
             raise Exception("Cannot calculate order price - missing order book data")
 
         if is_ask:
-            order_price = best_bid[0] + Decimal('0.1')
+            order_price = best_bid[0] + self.tick_size
         else:
-            order_price = best_ask[0] - Decimal('0.1')
+            order_price = best_ask[0] - self.tick_size
 
         return order_price
 
@@ -546,7 +546,7 @@ class HedgeBot:
         self.logger.info("✅ Backpack client initialized successfully")
         return self.backpack_client
 
-    def get_lighter_market_config(self) -> Tuple[int, int, int]:
+    def get_lighter_market_config(self) -> Tuple[int, int, int, Decimal]:
         """Get Lighter market configuration."""
         url = f"{self.lighter_base_url}/api/v1/orderBooks"
         headers = {"accept": "application/json"}
@@ -565,10 +565,12 @@ class HedgeBot:
 
             for market in data["order_books"]:
                 if market["symbol"] == self.ticker:
-                    return (market["market_id"],
-                            pow(10, market["supported_size_decimals"]),
-                            pow(10, market["supported_price_decimals"]))
-
+                    price_multiplier = pow(10, market["supported_price_decimals"])
+                    return (market["market_id"], 
+                           pow(10, market["supported_size_decimals"]), 
+                           price_multiplier,
+                           Decimal("1") / (Decimal("10") ** market["supported_price_decimals"])
+                           )
             raise Exception(f"Ticker {self.ticker} not found")
 
         except Exception as e:
@@ -995,7 +997,7 @@ class HedgeBot:
 
             # Get contract info
             self.backpack_contract_id, self.backpack_tick_size = await self.get_backpack_contract_info()
-            self.lighter_market_index, self.base_amount_multiplier, self.price_multiplier = self.get_lighter_market_config()
+            self.lighter_market_index, self.base_amount_multiplier, self.price_multiplier, self.tick_size = self.get_lighter_market_config()
 
             self.logger.info(f"Contract info loaded - Backpack: {self.backpack_contract_id}, "
                              f"Lighter: {self.lighter_market_index}")

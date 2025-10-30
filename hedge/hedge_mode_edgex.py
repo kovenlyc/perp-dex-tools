@@ -234,7 +234,7 @@ class HedgeBot:
         self.logger.info("✅ edgeX client initialized successfully")
         return self.edgex_client
 
-    async def get_lighter_market_config(self) -> Tuple[int, int, int]:
+    async def get_lighter_market_config(self) -> Tuple[int, int, int, Decimal]:
         """Get Lighter market configuration."""
         url = f"{self.lighter_base_url}/api/v1/orderBooks"
         headers = {"accept": "application/json"}
@@ -253,10 +253,12 @@ class HedgeBot:
 
             for market in data["order_books"]:
                 if market["symbol"] == self.ticker:
+                    price_multiplier = pow(10, market["supported_price_decimals"])
                     return (market["market_id"], 
                            pow(10, market["supported_size_decimals"]), 
-                           pow(10, market["supported_price_decimals"]))
-
+                           price_multiplier,
+                           Decimal("1") / (Decimal("10") ** market["supported_price_decimals"])
+                           )
             raise Exception(f"Ticker {self.ticker} not found")
 
         except Exception as e:
@@ -392,15 +394,16 @@ class HedgeBot:
                 self.edgex_order_status = 'NEW'
                 order_id = await self.place_bbo_order(side, quantity)
                 start_time = time.time()
-                await asyncio.sleep(0.5)
+                await asyncio.sleep(1)
             elif self.edgex_order_status in ['NEW', 'OPEN', 'PENDING', 'CANCELING']:
-                await asyncio.sleep(0.5)
+                await asyncio.sleep(0.1)
                 if time.time() - start_time > self.fill_timeout:
                     try:
                         cancel_params = CancelOrderParams(order_id=order_id)
                         # Cancel the order using official SDK
                         self.logger.info(f"[{order_id}] [OPEN] [edgeX] [{side}] Time out - Canceling edgeX order.")
                         cancel_result = await self.edgex_client.cancel_order(cancel_params)
+                        await asyncio.sleep(1)
                     except Exception as e:
                         self.logger.error(f"❌ Error canceling edgeX order: {e}")
             elif self.edgex_order_status == 'FILLED':
@@ -577,9 +580,9 @@ class HedgeBot:
             raise Exception("Cannot calculate mid price - missing order book data")
         
         if is_ask:
-            order_price = best_bid[0]+Decimal('0.1')
+            order_price = best_bid[0]+self.tick_size
         else:
-            order_price = best_ask[0]-Decimal('0.1')
+            order_price = best_ask[0]-self.tick_size
 
         return order_price
 
@@ -1037,7 +1040,7 @@ class HedgeBot:
             
             # Get contract info
             self.edgex_contract_id, self.edgex_tick_size = await self.get_edgex_contract_info()
-            self.lighter_market_index, self.base_amount_multiplier, self.price_multiplier = await self.get_lighter_market_config()
+            self.lighter_market_index, self.base_amount_multiplier, self.price_multiplier, self.tick_size = await self.get_lighter_market_config()
             
             self.logger.info(f"Contract info loaded - edgeX: {self.edgex_contract_id}, Lighter: {self.lighter_market_index}")
             
